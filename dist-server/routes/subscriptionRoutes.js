@@ -1,0 +1,10 @@
+import { Router } from "express";
+import { getSubscriptions, postSubscription, putSubscription, removeSubscription, } from "../controllers/subscriptionController";
+import { authMiddleware } from "../middleware/auth";
+const router = Router();
+router.get("/", authMiddleware, getSubscriptions);
+router.post("/", authMiddleware, postSubscription);
+router.put("/:id", authMiddleware, putSubscription);
+router.patch("/:id", authMiddleware, putSubscription);
+router.delete("/:id", authMiddleware, removeSubscription);
+export default router;

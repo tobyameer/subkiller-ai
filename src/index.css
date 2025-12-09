@@ -1,0 +1,25 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  color: #e2e8f0;
+  background-color: #020617;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.18), transparent 25%),
+    radial-gradient(circle at 80% 0%, rgba(14, 165, 233, 0.18), transparent 20%),
+    #020617;
+  color: #e2e8f0;
+}
+
+a {
+  color: inherit;
+}
