@@ -1,19 +1,26 @@
-# React + Vite
+# SubKiller – dev setup
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Backend (Node/Express, compiled JS in `dist-server/`)
 
-Currently, two official plugins are available:
+```
+npm run dev:server
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Frontend (Vite React in `frontend/`)
 
-## Expanding the ESLint configuration
+```
+cd frontend
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Key environment variables (examples in `.env` + `frontend/.env`):
 
-## Dev note: reset data after subscription model changes
+- `MONGO_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+- `OPENAI_API_KEY`
+- `FRONTEND_ORIGIN` — comma-separated allowlist for CORS (e.g. `http://localhost:5173,http://127.0.0.1:5173`)
+- `VITE_API_URL` (frontend) — default `http://localhost:8080`
+- Plaid/Stripe keys are optional; Plaid routes respond with 501 if not configured.
 
-After the subscription/charge split, reset old data in dev to avoid stale or AI-generated renewal dates. Quick options:
-
-- Drop collections: `db.subscriptions.drop()` and `db.charges.drop()` (Mongo shell)
-- Or normalize documents as needed to allow the new aggregator to repopulate them.
+Auth/flows rely on cookies (`credentials: "include"`). Ensure frontend and backend origins match the allowlist to avoid CORS/login failures.
