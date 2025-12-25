@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { authMiddleware } from "../middleware/auth";
-import { acceptSuggestion, ignoreSuggestion, listSuggestions, suggestionSummary, } from "../controllers/suggestionController";
+import { authMiddleware } from "../middleware/auth.js";
+import { acceptSuggestion, ignoreSuggestion, listSuggestions, suggestionSummary } from "../controllers/suggestionController.js";
+
 const router = Router();
 router.get("/", authMiddleware, listSuggestions);
 router.get("/summary", authMiddleware, suggestionSummary);

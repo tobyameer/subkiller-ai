@@ -1,8 +1,9 @@
-import { PendingSubscriptionSuggestionModel } from "../models/PendingSubscriptionSuggestion";
-import { SubscriptionModel } from "../models/Subscription";
-import { normalizeAmount, normalizeTextField } from "../utils/normalize";
-import { IgnoredSenderModel } from "../models/IgnoredSender";
+
 import { Types } from "mongoose";
+import { PendingSubscriptionSuggestionModel } from "../models/PendingSubscriptionSuggestion.js";
+import { SubscriptionModel } from "../models/Subscription.js";
+import { normalizeAmount, normalizeTextField } from "../utils/normalize.js";
+import { IgnoredSenderModel } from "../models/IgnoredSender.js";
 export async function listSuggestions(req, res, next) {
     try {
         const items = await PendingSubscriptionSuggestionModel.find({

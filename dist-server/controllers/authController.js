@@ -1,5 +1,8 @@
-import { loginUser, registerUser, getUserById } from "../services/authService";
-import { setAuthCookies } from "../utils/http";
+
+
+import { loginUser, registerUser, getUserById } from "../services/authService.js";
+import { setAuthCookies } from "../utils/http.js";
+
 function sanitizeUser(user) {
     if (!user)
         return user;
@@ -10,11 +13,19 @@ function sanitizeUser(user) {
 }
 export async function register(req, res, next) {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, firstName, lastName, gender, dob, country, marketingOptIn } = req.body;
         if (!email || !password || !name) {
             return res.status(400).json({ message: "Name, email, and password are required" });
         }
-        const { user, accessToken, refreshToken } = await registerUser(name, email, password);
+        const profile = {
+            firstName,
+            lastName,
+            gender,
+            dob: dob ? new Date(dob) : undefined,
+            country,
+            marketingOptIn: Boolean(marketingOptIn),
+        };
+        const { user, accessToken, refreshToken } = await registerUser(name, email, password, profile);
         setAuthCookies(res, accessToken, refreshToken);
         res.status(201).json({ user: sanitizeUser(user) });
     }
@@ -39,6 +50,23 @@ export async function me(req, res, next) {
             return res.status(401).json({ message: "Unauthorized" });
         const user = await getUserById(req.user.id);
         res.json({ user: sanitizeUser(user) });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+export async function logout(req, res, next) {
+    try {
+        const isProd = process.env.NODE_ENV === "production";
+        const cookieOptions = {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: isProd,
+            path: "/",
+        };
+        res.clearCookie("accessToken", cookieOptions);
+        res.clearCookie("refreshToken", cookieOptions);
+        res.json({ success: true });
     }
     catch (err) {
         next(err);

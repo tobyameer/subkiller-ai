@@ -1,16 +1,17 @@
 import bcrypt from "bcryptjs";
-import { UserModel } from "../models/User";
-import { signAccessToken, signRefreshToken } from "../utils/token";
-export async function registerUser(name, email, password) {
+import { UserModel } from "../models/User.js";
+import { signAccessToken, signRefreshToken } from "../utils/token.js";
+
+export async function registerUser(name, email, password, profile = {}) {
     if (!email || !password)
         throw { status: 400, message: "Email and password are required" };
     const existing = await UserModel.findOne({ email });
     if (existing)
         throw { status: 400, message: "Email already registered" };
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await UserModel.create({ name, email, passwordHash, subscriptionPlan: "free" });
-    const accessToken = signAccessToken({ userId: user.id, email: user.email, plan: user.subscriptionPlan });
-    const refreshToken = signRefreshToken({ userId: user.id, email: user.email, plan: user.subscriptionPlan });
+    const user = await UserModel.create(Object.assign({ name, email, passwordHash, plan: "free" }, profile));
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, plan: user.plan });
+    const refreshToken = signRefreshToken({ userId: user.id, email: user.email, plan: user.plan });
     return { user, accessToken, refreshToken };
 }
 export async function loginUser(email, password) {
@@ -29,8 +30,8 @@ export async function loginUser(email, password) {
     console.log("[auth] password match?", ok);
     if (!ok)
         throw { status: 401, message: "Invalid credentials" };
-    const accessToken = signAccessToken({ userId: user.id, email: user.email, plan: user.subscriptionPlan });
-    const refreshToken = signRefreshToken({ userId: user.id, email: user.email, plan: user.subscriptionPlan });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, plan: user.plan });
+    const refreshToken = signRefreshToken({ userId: user.id, email: user.email, plan: user.plan });
     return { user, accessToken, refreshToken };
 }
 export async function getUserById(userId) {

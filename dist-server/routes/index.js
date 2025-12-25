@@ -9,6 +9,7 @@ import plaidRoutes from "./plaidRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 import userRoutes from "./userRoutes.js";
 import newsletterRoutes from "./newsletterRoutes.js";
+import reviewRoutes from "./reviewRoutes.js";
 
 const router = Router();
 router.use("/auth", authRoutes);
@@ -21,4 +22,5 @@ router.use("/plaid", plaidRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/users", userRoutes);
 router.use("/newsletter", newsletterRoutes);
+router.use("/", reviewRoutes); // Review routes (server.js already adds /api prefix)
 export default router;

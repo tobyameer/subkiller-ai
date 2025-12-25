@@ -13,15 +13,24 @@ export const env = {
   mongoUri: process.env.MONGO_URI || "mongodb://localhost:27017/subkiller",
   jwtAccessSecret: requireEnv("JWT_ACCESS_SECRET"),
   jwtRefreshSecret: requireEnv("JWT_REFRESH_SECRET"),
-  frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:5173,http://127.0.0.1:5173",
-  frontendOrigins: (process.env.FRONTEND_ORIGIN || "http://localhost:5173,http://127.0.0.1:5173")
+  frontendOrigin:
+    process.env.FRONTEND_ORIGIN ||
+    "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174",
+  frontendOrigins: (
+    process.env.FRONTEND_ORIGIN ||
+    "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
+  )
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean),
-  primaryFrontendOrigin: (process.env.FRONTEND_ORIGIN || "http://localhost:5173,http://127.0.0.1:5173")
-    .split(",")
-    .map((o) => o.trim())
-    .filter(Boolean)[0] || "http://localhost:5173",
+  primaryFrontendOrigin:
+    (
+      process.env.FRONTEND_ORIGIN ||
+      "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
+    )
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean)[0] || "http://localhost:5173",
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripePricePro: process.env.STRIPE_PRICE_PRO || "",
   stripePricePremium: process.env.STRIPE_PRICE_PREMIUM || "",
