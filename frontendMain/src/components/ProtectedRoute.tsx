@@ -12,7 +12,21 @@ export function ProtectedRoute({ children }: Props) {
   const { data: user, isLoading, error } = useUser();
   const location = useLocation();
 
-  // If there's an error or request failed, treat as not authenticated
+  // If network error (backend down), show error message
+  if (error && (error as any).isNetworkError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Backend not reachable</h1>
+          <p className="text-muted-foreground">
+            {(error as any).message || "Unable to connect to the server. Please check if the backend is running."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If there's an error (non-network) or request failed, treat as not authenticated
   if (error || (!isLoading && !user)) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?next=${next}`} replace />;
@@ -72,7 +86,21 @@ export function ProOnlyRoute({ children }: ProOnlyProps) {
     }
   }, [user, isLoading]);
 
-  // If there's an error or request failed, treat as not authenticated
+  // If network error (backend down), show error message
+  if (error && (error as any).isNetworkError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Backend not reachable</h1>
+          <p className="text-muted-foreground">
+            {(error as any).message || "Unable to connect to the server. Please check if the backend is running."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If there's an error (non-network) or request failed, treat as not authenticated
   if (error || (!isLoading && !user)) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?next=${next}`} replace />;

@@ -334,8 +334,8 @@ export async function mergePlaidWithSubscriptions(userId) {
                 bestMatch.status = "active";
             }
             try {
-                await bestMatch.save();
-                updated += 1;
+            await bestMatch.save();
+            updated += 1;
             } catch (err) {
                 // eslint-disable-next-line no-console
                 console.error("[plaid] Failed to save subscription update:", {
@@ -375,30 +375,30 @@ export async function mergePlaidWithSubscriptions(userId) {
             // Use original merchant name for service, normalized for serviceNormalized
             const originalServiceName = latest.merchantName || group.merchant;
             try {
-                await SubscriptionModel.create({
-                    userId: new Types.ObjectId(userId),
+            await SubscriptionModel.create({
+                userId: new Types.ObjectId(userId),
                     service: originalServiceName, // Human-readable name
                     serviceNormalized: group.merchant, // Normalized for queries
-                    category: "Other",
-                    amount,
-                    confirmedAmount: amount,
-                    monthlyAmount,
-                    estimatedMonthlySpend: monthlyAmount,
-                    totalAmount: bucketTxs.reduce((sum, t) => sum + Math.abs(Number(t.amount || 0)), 0),
-                    totalCharges: bucketTxs.length,
-                    currency: latest.currency || "USD",
-                    billingCycle: inferredCycle,
-                    confirmedBillingCycle: inferredCycle,
-                    nextRenewal,
-                    lastChargeAt: new Date(latest.date),
-                    firstDetectedAt,
-                    status: "active",
-                    plaidLinked: true,
-                    source: "card",
-                    sourceConfidence: "card_only",
-                    lastPlaidTransactionId: latest.transactionId,
-                    lastPlaidTransactionAt: new Date(latest.date),
-                });
+                category: "Other",
+                amount,
+                confirmedAmount: amount,
+                monthlyAmount,
+                estimatedMonthlySpend: monthlyAmount,
+                totalAmount: bucketTxs.reduce((sum, t) => sum + Math.abs(Number(t.amount || 0)), 0),
+                totalCharges: bucketTxs.length,
+                currency: latest.currency || "USD",
+                billingCycle: inferredCycle,
+                confirmedBillingCycle: inferredCycle,
+                nextRenewal,
+                lastChargeAt: new Date(latest.date),
+                firstDetectedAt,
+                status: "active",
+                plaidLinked: true,
+                source: "card",
+                sourceConfidence: "card_only",
+                lastPlaidTransactionId: latest.transactionId,
+                lastPlaidTransactionAt: new Date(latest.date),
+            });
             } catch (err) {
                 // eslint-disable-next-line no-console
                 console.error("[plaid] Failed to create subscription:", {

@@ -13,10 +13,14 @@ export const env = {
   mongoUri: process.env.MONGO_URI || "mongodb://localhost:27017/subkiller",
   jwtAccessSecret: requireEnv("JWT_ACCESS_SECRET"),
   jwtRefreshSecret: requireEnv("JWT_REFRESH_SECRET"),
+  // Support both FRONTEND_ORIGIN (legacy) and CORS_ORIGINS (production)
+  // CORS_ORIGINS takes precedence if set
   frontendOrigin:
+    process.env.CORS_ORIGINS ||
     process.env.FRONTEND_ORIGIN ||
     "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174",
   frontendOrigins: (
+    process.env.CORS_ORIGINS ||
     process.env.FRONTEND_ORIGIN ||
     "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
   )

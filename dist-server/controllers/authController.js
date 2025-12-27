@@ -58,10 +58,14 @@ export async function me(req, res, next) {
 export async function logout(req, res, next) {
     try {
         const isProd = process.env.NODE_ENV === "production";
+        // In production with cross-site: use sameSite: "none" with secure: true
+        // In development or same-site: use sameSite: "lax"
+        const sameSite = isProd ? "none" : "lax";
+        const secure = isProd; // Always secure in production
         const cookieOptions = {
             httpOnly: true,
-            sameSite: "lax",
-            secure: isProd,
+            sameSite,
+            secure,
             path: "/",
         };
         res.clearCookie("accessToken", cookieOptions);

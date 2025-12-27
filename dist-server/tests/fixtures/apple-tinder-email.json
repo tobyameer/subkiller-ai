@@ -1,0 +1,21 @@
+{
+  "description": "Apple subscription confirmation email for Tinder",
+  "subject": "Your Subscription is Confirmed",
+  "from": "no_reply@email.apple.com",
+  "snippet": "Your subscription to Tinder Dating App: Date & Chat has been confirmed",
+  "bodyText": "Your subscription to Tinder Dating App: Date & Chat has been confirmed.\n\nSubscription Details:\n- Service: Tinder Dating App: Date & Chat\n- Billing Cycle: Weekly\n- Amount: $9.99\n- Next Billing Date: 2025-02-03\n\nThank you for your subscription.",
+  "pdfText": "",
+  "expected": {
+    "service": "Tinder Dating App: Date & Chat",
+    "service_canonical": "Tinder",
+    "provider": "apple",
+    "product_name": "Tinder Dating App: Date & Chat",
+    "amount": 9.99,
+    "currency": "USD",
+    "billingCycle": "weekly",
+    "kind": "subscription",
+    "status": "active",
+    "confidence": 0.9
+  }
+}
+

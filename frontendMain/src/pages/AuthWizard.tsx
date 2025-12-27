@@ -125,7 +125,7 @@ export default function AuthWizard() {
         // Network/connection error
         errorMessage =
           err.message ||
-          "Cannot connect to backend server. Is it running on http://localhost:4000?";
+          "Cannot connect to backend server. Please check your connection.";
       } else if (err?.status === 400) {
         // Validation error from server
         errorMessage =

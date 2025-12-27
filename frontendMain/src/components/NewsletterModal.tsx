@@ -43,11 +43,35 @@ export function NewsletterModal({ open, onOpenChange }: NewsletterModalProps) {
 
     setLoading(true);
     try {
-      await api.post("/api/newsletter/subscribe", { email });
-      localStorage.setItem("newsletterSubscribed", "true");
-      toast.success("Thanks for subscribing!");
-      onOpenChange(false);
+      const response = await api.post<{
+        ok: boolean;
+        emailSaved: boolean;
+        emailSent: boolean;
+        mode?: string;
+        error?: string;
+        errorMessage?: string;
+        messageId?: string;
+      }>("/api/newsletter/subscribe", { email });
+      
+      if (response.ok) {
+        localStorage.setItem("newsletterSubscribed", "true");
+        if (response.mode === "mock") {
+          toast.success("Subscribed! (Email sending is disabled in development)");
+        } else {
+          toast.success("Thanks for subscribing! Check your email for confirmation.");
+        }
+        onOpenChange(false);
+      } else {
+        // Backend returned ok:false (SMTP failed)
+        const errorMsg = response.errorMessage || response.error || "Failed to send confirmation email";
+        toast.error(errorMsg);
+        // Still close modal if email was saved
+        if (response.emailSaved) {
+          onOpenChange(false);
+        }
+      }
     } catch (err: any) {
+      // Network or other errors
       const errorMessage =
         err?.message || "Failed to subscribe. Please try again.";
       toast.error(errorMessage);

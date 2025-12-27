@@ -13,17 +13,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, {
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-      ...options,
-    });
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
   } catch (fetchError: any) {
-    // Network error (server down, CORS, etc.)
+    // Network error (server down, CORS, connection refused, etc.)
     // eslint-disable-next-line no-console
-    console.error("[api] network error", url, fetchError);
+    console.error("[api] network error", url, fetchError.message || fetchError);
     const backendUrl = BASE_URL;
     const error: any = new Error(
       `Backend not reachable. Is the server running on ${backendUrl}? Check the console for connection errors.`
@@ -44,12 +44,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     data = null;
   }
   
+  // Handle 401 Unauthorized - don't treat as error, just return null/empty
+  if (res.status === 401) {
+    // eslint-disable-next-line no-console
+    console.log("[api] 401 Unauthorized (user not logged in)", url);
+    const error: any = new Error("Unauthorized");
+    error.status = 401;
+    error.isUnauthorized = true;
+    error.data = data;
+    throw error;
+  }
+  
   if (!res.ok) {
     // eslint-disable-next-line no-console
-    console.error("[api] error", url, res.status, data);
+    console.error("[api] http error", url, res.status, data);
     const message = data?.message || `Request failed: ${res.status}`;
     const error: any = new Error(message);
     error.status = res.status;
+    error.isNetworkError = false; // HTTP error, not network error
     if (data?.code) error.code = data.code;
     error.data = data;
     throw error;

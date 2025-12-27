@@ -27,7 +27,10 @@ export async function extractSubscription(input) {
 Your job: extract structured data from an email about billing.
 
 Return JSON ONLY with these keys (no extras):
-- service (string | null)
+- service (string | null) - Raw service name as mentioned in email
+- service_canonical (string | null) - Canonical service name (e.g., "Tinder" not "Tinder Dating App: Date & Chat")
+- provider (string | null) - Provider platform: "apple", "google", "stripe", "direct", or null
+- product_name (string | null) - Optional product name if different from service (e.g., "iCloud+" vs "Apple")
 - category (one of: Streaming, Music, Gaming, Productivity, Cloud, Finance, Fitness, Retail, Food, Other)
 - amount (number)
 - currency (ISO code like USD, EGP, EUR)
@@ -35,6 +38,7 @@ Return JSON ONLY with these keys (no extras):
 - nextRenewal (ISO date string YYYY-MM-DD or null)
 - status (one of: active, trial, cancel_soon, canceled, paused, payment_failed)
 - kind (one of: subscription, one_time_purchase, marketing, newsletter, other)
+- confidence (number 0-1) - Confidence in extraction accuracy
 
 Important classification rules:
 - Use kind="subscription" if the email indicates a subscription/membership account OR a renewal cycle OR an upcoming recurring charge, even if the current email total is 0.00.
@@ -53,8 +57,11 @@ Amount rules (very important):
 - If truly no price is present anywhere, set amount to 0. Even with amount=0, if it's clearly a subscription (kind="subscription"), still classify it as a subscription.
 
 Service rules:
-- service must be a human-readable merchant/brand (e.g., Netflix, Spotify, Apple iCloud, Adobe, YouTube Premium, Amazon Prime).
-- Use sender and subject strongly; if it’s clearly about billing/subscription, do NOT leave service null.
+- service: Raw service name as it appears in the email (e.g., "Tinder Dating App: Date & Chat", "Apple Services", "Netflix")
+- service_canonical: Clean, canonical name without extra text (e.g., "Tinder", "Apple", "Netflix"). Remove app store suffixes, colons, extra descriptions.
+- provider: Detect from sender domain - "apple" for @apple.com/@email.apple.com, "google" for @google.com/@googleplay-noreply, "stripe" for @stripe.com, "direct" for others, null if uncertain.
+- product_name: Optional specific product if different from service (e.g., if service="Apple" but product is "iCloud+", set product_name="iCloud+")
+- Use sender and subject strongly; if it's clearly about billing/subscription, do NOT leave service null.
 
 Status rules:
 - payment failed / declined / couldn't process -> status="payment_failed" and kind should still be "subscription" if it's a renewal/subscription context.
@@ -113,15 +120,24 @@ ${text}`;
     }
     // Ensure kind default
     if (!data.kind) data.kind = "other";
+    // Ensure confidence is set (default 0.8 if not provided)
+    if (typeof data.confidence !== "number" || data.confidence < 0 || data.confidence > 1) {
+      data.confidence = 0.8;
+    }
+    
     // Log extraction for debugging
     // eslint-disable-next-line no-console
     console.log("[ai] extracted subscription", {
       subject,
       from,
       service: data.service,
+      service_canonical: data.service_canonical,
+      provider: data.provider,
+      product_name: data.product_name,
       category: data.category,
       amount: data.amount,
       kind: data.kind,
+      confidence: data.confidence,
     });
     return data;
   } catch (err) {

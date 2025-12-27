@@ -1,0 +1,14 @@
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { User } from "@/types";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+/**
+ * Check if a user has Pro plan
+ */
+export function isPro(user: User | null | undefined): boolean {
+  return user?.plan === "pro";
+}

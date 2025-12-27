@@ -21,10 +21,27 @@ const normalizeUser = (raw: any): User => ({
   plaidLinked: raw.plaidLinked ?? false,
 });
 
-const fetchUser = async (): Promise<User> => {
-  const res = await api.get<{ user: any } | User>("/api/auth/me");
-  const raw: any = (res as any).user ?? res;
-  return normalizeUser(raw);
+const fetchUser = async (): Promise<User | null> => {
+  try {
+    const res = await api.get<{ user: any } | User>("/api/auth/me");
+    const raw: any = (res as any).user ?? res;
+    return normalizeUser(raw);
+  } catch (error: any) {
+    // 401 means user is not logged in - return null silently (not an error)
+    if (error.status === 401 || error.isUnauthorized) {
+      // eslint-disable-next-line no-console
+      console.log("[auth] User not logged in (401)");
+      return null;
+    }
+    // Network errors (backend down) or 5xx errors - rethrow to show error state
+    if (error.isNetworkError || (error.status >= 500 && error.status < 600)) {
+      // eslint-disable-next-line no-console
+      console.error("[auth] Backend error:", error.message);
+      throw error;
+    }
+    // Other errors (4xx except 401) - also rethrow
+    throw error;
+  }
 };
 
 export function useUser() {
@@ -33,6 +50,11 @@ export function useUser() {
     queryFn: fetchUser, 
     retry: false,
     refetchOnWindowFocus: false,
+    // Don't show error toast for 401 - it's expected when not logged in
+    throwOnError: (error: any) => {
+      // Only throw (show error) for network errors or 5xx
+      return error.isNetworkError || (error.status >= 500 && error.status < 600);
+    },
   });
 }
 

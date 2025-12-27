@@ -1,0 +1,20 @@
+{
+  "description": "Talabat PDF invoice where amount is only in PDF",
+  "subject": "Your Talabat Order Receipt",
+  "from": "noreply@talabat.com",
+  "snippet": "Thank you for your order",
+  "bodyText": "Thank you for your order.\n\nYour receipt is attached.\n\nOrder ID: #12345\n\nThank you for choosing Talabat!",
+  "pdfText": "TAX INVOICE\n\nTalabat\nOrder #12345\nDate: 2025-01-27\n\nItems:\n- Subscription Service\n- Monthly Plan\n\nSubtotal: EGP 120.00\nTax: EGP 0.00\nTotal: EGP 120.00\n\nPayment Method: Credit Card\n\nThank you for your business!",
+  "expected": {
+    "service": "Talabat",
+    "service_canonical": "Talabat",
+    "provider": "direct",
+    "amount": 120.00,
+    "currency": "EGP",
+    "billingCycle": "monthly",
+    "kind": "subscription",
+    "status": "active",
+    "confidence": 0.85
+  }
+}
+
