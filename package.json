@@ -7,6 +7,7 @@
     "dev": "npm run dev:server & cd frontendMain && npm run dev",
     "dev:server": "node --experimental-specifier-resolution=node dist-server/server.js",
     "dev:client": "cd frontendMain && npm run dev",
+    "start": "node --experimental-specifier-resolution=node dist-server/server.js",
     "start:server": "node --experimental-specifier-resolution=node dist-server/server.js",
     "lint": "cd frontendMain && npm run lint",
     "lint:fix": "cd frontendMain && npm run lint -- --fix",

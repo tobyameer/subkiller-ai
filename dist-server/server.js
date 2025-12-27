@@ -163,6 +163,8 @@ const start = async () => {
       // eslint-disable-next-line no-console
       console.log("=".repeat(50));
       // eslint-disable-next-line no-console
+      console.log(`Server listening on port ${PORT}`);
+      // eslint-disable-next-line no-console
       console.log(
         `[startup] ✅ SubKiller backend running on http://localhost:${PORT}`
       );
