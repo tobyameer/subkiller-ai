@@ -24,48 +24,57 @@ const PORT = parseInt(process.env.PORT || env.port, 10) || 4000;
 const serverStartTime = Date.now();
 
 // CORS config: Allow production Netlify domains + localhost in dev
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // Allow requests with no origin (curl, postman, mobile apps, etc.)
-      if (!origin) return cb(null, true);
+const corsOptions = {
+  origin: (origin, cb) => {
+    // Allow requests with no origin (curl, postman, mobile apps, etc.)
+    if (!origin) return cb(null, true);
 
-      // In development: allow any localhost/127.0.0.1 with any port
-      if (isDev) {
-        const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
-        if (localhostRegex.test(origin)) {
-          return cb(null, true);
-        }
-      }
-
-      // Allow any Netlify deployment (*.netlify.app)
-      if (origin.endsWith(".netlify.app")) {
+    // In development: allow any localhost/127.0.0.1 with any port
+    if (isDev) {
+      const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
+      if (localhostRegex.test(origin)) {
         return cb(null, true);
       }
+    }
 
-      // Check explicit allowlist from env (CORS_ORIGINS or FRONTEND_ORIGIN)
-      if (allowlist.includes(origin)) {
-        return cb(null, true);
-      }
+    // Allow any Netlify deployment (*.netlify.app)
+    if (origin.endsWith(".netlify.app")) {
+      return cb(null, true);
+    }
 
-      // Blocked origin
-      // eslint-disable-next-line no-console
-      console.error("[cors] Blocked origin:", origin);
-      // eslint-disable-next-line no-console
-      console.error(
-        "[cors] Allowed patterns: *.netlify.app, localhost (dev), and:",
-        allowlist
-      );
-      return cb(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+    // Check explicit allowlist from env (CORS_ORIGINS or FRONTEND_ORIGIN)
+    if (allowlist.includes(origin)) {
+      return cb(null, true);
+    }
+
+    // Blocked origin
+    // eslint-disable-next-line no-console
+    console.error("[cors] Blocked origin:", origin);
+    // eslint-disable-next-line no-console
+    console.error(
+      "[cors] Allowed patterns: *.netlify.app, localhost (dev), and:",
+      allowlist
+    );
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+// Apply CORS middleware (must be before routes)
+app.use(cors(corsOptions));
+// Handle preflight OPTIONS requests globally
+app.options("*", cors(corsOptions));
+
 app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
+
+// Root route
+app.get("/", (_req, res) => {
+  res.status(200).send("OK");
+});
 
 // Health endpoint (before routes and rate limiting, works even if DB is down)
 app.get("/api/health", (_req, res) => {
