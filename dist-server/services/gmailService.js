@@ -10,6 +10,7 @@ import pLimit from "p-limit";
 import { getGoogleClient } from "../config/google.js";
 import { env } from "../config/env.js";
 import { UserModel } from "../models/User.js";
+import { GmailTokenModel } from "../models/GmailToken.js";
 import { normalizeAmount, normalizeTextField } from "../utils/normalize.js";
 import { canonicalizeService, detectProvider } from "../utils/canonicalize.js";
 import { PendingSubscriptionSuggestionModel } from "../models/PendingSubscriptionSuggestion.js";
@@ -60,23 +61,27 @@ function isInsufficientPermission(err) {
 }
 
 export async function clearUserGmailTokens(userId) {
+  // Remove GmailToken document
+  await GmailTokenModel.findOneAndDelete({ userId: new Types.ObjectId(userId) });
+  // Also clear legacy fields in User model for backward compatibility
   await UserModel.findByIdAndUpdate(userId, {
     gmailConnected: false,
     gmailTokens: { access: null, refresh: null, expiry: null },
+    gmailEmail: null,
   });
 }
 
 // Lightweight health check to detect missing scopes / invalid tokens
 export async function ensureGmailHealth(userId) {
-  const user = await UserModel.findById(userId);
-  if (!user?.gmailTokens?.refresh && !user?.gmailTokens?.access) {
+  const tokenDoc = await GmailTokenModel.findOne({ userId: new Types.ObjectId(userId) });
+  if (!tokenDoc) {
     return { ok: false, reason: "NOT_CONNECTED", clearTokens: false };
   }
   const client = getGoogleClient();
   client.setCredentials({
-    access_token: user.gmailTokens.access,
-    refresh_token: user.gmailTokens.refresh,
-    expiry_date: user.gmailTokens.expiry,
+    access_token: tokenDoc.accessToken,
+    refresh_token: tokenDoc.refreshToken,
+    expiry_date: tokenDoc.expiryDate,
   });
   const gmail = google.gmail({ version: "v1", auth: client });
   try {
@@ -107,7 +112,6 @@ export async function ensureGmailHealth(userId) {
 
 export async function exchangeCodeForTokens(code, userId) {
   const client = getGoogleClient();
-  const existing = await UserModel.findById(userId);
   // Ensure redirect URI matches the one registered in Google Cloud
   const { tokens } = await client.getToken({
     code,
@@ -119,36 +123,45 @@ export async function exchangeCodeForTokens(code, userId) {
   if (!profile?.data?.email) {
     throw new Error("Invalid Gmail profile");
   }
-  const gmailEmail = profile.data.email;
-  await UserModel.findByIdAndUpdate(userId, {
-    gmailTokens: {
-      access: tokens.access_token,
+  const googleEmail = profile.data.email;
+  
+  // Get existing token doc to preserve refresh token if Google doesn't return a new one
+  const existing = await GmailTokenModel.findOne({ userId: new Types.ObjectId(userId) });
+  
+  // Store tokens in GmailToken model
+  await GmailTokenModel.findOneAndUpdate(
+    { userId: new Types.ObjectId(userId) },
+    {
+      userId: new Types.ObjectId(userId),
+      googleEmail,
+      accessToken: tokens.access_token,
       // Preserve existing refresh token if Google does not return a new one
-      refresh: tokens.refresh_token || existing?.gmailTokens?.refresh,
-      expiry: tokens.expiry_date,
+      refreshToken: tokens.refresh_token || existing?.refreshToken,
+      expiryDate: tokens.expiry_date || Date.now() + 3600 * 1000, // Default 1 hour if not provided
     },
-    gmailEmail,
+    { upsert: true, new: true }
+  );
+  
+  // Also update User model for backward compatibility
+  await UserModel.findByIdAndUpdate(userId, {
+    gmailEmail: googleEmail,
     gmailConnected: true,
   });
+  
   // eslint-disable-next-line no-console
-  console.log("[gmail] stored tokens for user", userId, "email", gmailEmail);
+  console.log("[gmail] stored tokens for user", userId, "email", googleEmail);
   return tokens;
 }
 export async function getAuthorizedGmailClient(userId) {
-  const user = await UserModel.findById(userId);
-  if (
-    !user ||
-    !user.gmailTokens ||
-    !user.gmailTokens.access ||
-    !user.gmailTokens.refresh
-  ) {
+  const tokenDoc = await GmailTokenModel.findOne({ userId: new Types.ObjectId(userId) });
+  if (!tokenDoc || !tokenDoc.accessToken || !tokenDoc.refreshToken) {
     throw { status: 401, message: "Gmail not connected" };
   }
   const client = getGoogleClient();
   client.setCredentials({
-    access_token: user.gmailTokens.access,
-    refresh_token: user.gmailTokens.refresh,
-    expiry_date: user.gmailTokens.expiry,
+    access_token: tokenDoc.accessToken,
+    refresh_token: tokenDoc.refreshToken,
+    expiry_date: tokenDoc.expiryDate,
   });
   const gmail = google.gmail({ version: "v1", auth: client });
   const ensureProfile = async () => gmail.users.getProfile({ userId: "me" });
@@ -179,13 +192,15 @@ export async function getAuthorizedGmailClient(userId) {
       const refreshed = await client.refreshAccessToken();
       const credentials = refreshed.credentials;
       client.setCredentials(credentials);
-      await UserModel.findByIdAndUpdate(userId, {
-        gmailTokens: {
-          access: credentials.access_token || user.gmailTokens.access,
-          refresh: credentials.refresh_token || user.gmailTokens.refresh,
-          expiry: credentials.expiry_date || user.gmailTokens.expiry,
-        },
-      });
+      // Update token document with refreshed credentials
+      await GmailTokenModel.findOneAndUpdate(
+        { userId: new Types.ObjectId(userId) },
+        {
+          accessToken: credentials.access_token || tokenDoc.accessToken,
+          refreshToken: credentials.refresh_token || tokenDoc.refreshToken,
+          expiryDate: credentials.expiry_date || tokenDoc.expiryDate,
+        }
+      );
       await ensureProfile();
     } catch (refreshErr) {
       if (isInvalidClient(refreshErr)) {
@@ -257,12 +272,13 @@ export async function scanGmailAndStore(userId, scanId = null, mode = "fast") {
   }
 
   // Always log scan start
+  const tokenDoc = await GmailTokenModel.findOne({ userId: new Types.ObjectId(userId) }).lean();
   // eslint-disable-next-line no-console
   console.log("[gmail] scanGmailAndStore V2 starting", {
     userId,
     scanId,
     mode,
-    hasTokens: !!user?.gmailTokens?.access,
+    hasTokens: !!tokenDoc?.accessToken,
     lastScanDate: lastScanDate?.toISOString(),
   });
 

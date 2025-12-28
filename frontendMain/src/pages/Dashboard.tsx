@@ -64,10 +64,28 @@ export default function Dashboard() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get("gmail") === "error") {
-      toast.error("Gmail connect failed. Please try again.");
+    if (params.get("gmail") === "connected") {
+      const email = params.get("email");
+      if (email) {
+        toast.success(`Gmail connected: ${email}`);
+      } else {
+        toast.success("Gmail connected successfully");
+      }
+      // Invalidate queries to refresh status
+      qc.invalidateQueries({ queryKey: ["gmail-status"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      // Clean URL
+      navigate("/dashboard", { replace: true });
+    } else if (params.get("gmail") === "error") {
+      const reason = params.get("reason");
+      const errorMsg = reason 
+        ? `Gmail connect failed: ${decodeURIComponent(reason)}`
+        : "Gmail connect failed. Please try again.";
+      toast.error(errorMsg);
+      // Clean URL
+      navigate("/dashboard", { replace: true });
     }
-  }, [location.search]);
+  }, [location.search, navigate, qc]);
 
   const connectGmail = useCallback(async () => {
     try {
@@ -83,7 +101,12 @@ export default function Dashboard() {
 
   const gmailConnected = gmailStatus.data?.connected ?? false;
   const needsReconnect = gmailStatus.data?.needsReconnect ?? false;
-  const gmailBadge = needsReconnect ? "Reconnect needed" : gmailConnected ? "Gmail connected" : "Not connected";
+  const gmailEmail = gmailStatus.data?.gmailEmail;
+  const gmailBadge = needsReconnect 
+    ? "Reconnect needed" 
+    : gmailConnected 
+    ? (gmailEmail ? `Connected: ${gmailEmail}` : "Gmail connected")
+    : "Not connected";
   const gmailCtaLabel = !gmailConnected ? "Connect Gmail" : needsReconnect ? "Reconnect Gmail" : "Scan Gmail";
 
   const activeSubs = useMemo(() => (subsQuery.data || []).filter((s) => !s.deletedAt), [subsQuery.data]);

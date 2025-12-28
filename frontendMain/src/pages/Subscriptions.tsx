@@ -104,11 +104,28 @@ export default function Subscriptions() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const gmailResult = params.get("gmail");
-    if (gmailResult === "error") {
-      toast.error("Gmail connect failed. Please try again.");
+    if (params.get("gmail") === "connected") {
+      const email = params.get("email");
+      if (email) {
+        toast.success(`Gmail connected: ${email}`);
+      } else {
+        toast.success("Gmail connected successfully");
+      }
+      // Invalidate queries to refresh status
+      qc.invalidateQueries({ queryKey: ["gmail-status"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      // Clean URL
+      navigate("/subscriptions", { replace: true });
+    } else if (params.get("gmail") === "error") {
+      const reason = params.get("reason");
+      const errorMsg = reason 
+        ? `Gmail connect failed: ${decodeURIComponent(reason)}`
+        : "Gmail connect failed. Please try again.";
+      toast.error(errorMsg);
+      // Clean URL
+      navigate("/subscriptions", { replace: true });
     }
-  }, [location.search]);
+  }, [location.search, navigate, qc]);
 
   const gmailConnected = gmailStatus.data?.connected ?? false;
   const plan = user?.plan || "free";
@@ -130,6 +147,7 @@ export default function Subscriptions() {
 
   const needsReconnect = gmailStatus.data?.needsReconnect ?? false;
   const isConnected = gmailStatus.data?.connected ?? false;
+  const gmailEmail = gmailStatus.data?.gmailEmail;
   const ctaLabel = !isConnected
     ? "Connect Gmail"
     : needsReconnect
@@ -368,7 +386,7 @@ export default function Subscriptions() {
                 {needsReconnect
                   ? "Reconnect needed"
                   : isConnected
-                  ? "Gmail connected"
+                  ? (gmailEmail ? `Connected: ${gmailEmail}` : "Gmail connected")
                   : "Not connected"}
               </Badge>
               {userIsPro ? (

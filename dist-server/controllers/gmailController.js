@@ -6,6 +6,7 @@ import {
 } from "../services/gmailService.js";
 import { env } from "../config/env.js";
 import { UserModel } from "../models/User.js";
+import { GmailTokenModel } from "../models/GmailToken.js";
 
 export async function debugConfig(req, res) {
   res.json({
@@ -36,181 +37,79 @@ export async function authUrl(req, res, next) {
 }
 export async function callback(req, res, next) {
   try {
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/56b4ddea-2e27-4d85-b699-499476c203a6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "gmailController.js:30",
-        message: "callback entry",
-        data: {
-          query: req.query,
-          hasUser: !!req.user,
-          userId: req.user?.id,
-          queryKeys: Object.keys(req.query || {}),
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H1,H2,H4,H5",
-      }),
-    }).catch(() => {});
-    // #endregion
     const { code, error } = req.query;
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/56b4ddea-2e27-4d85-b699-499476c203a6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "gmailController.js:33",
-        message: "after query extraction",
-        data: {
-          hasCode: !!code,
-          hasError: !!error,
-          errorValue: error,
-          codeValue: code?.substring(0, 20),
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H1",
-      }),
-    }).catch(() => {});
-    // #endregion
+    
+    // Handle OAuth error from Google
     if (error) {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/56b4ddea-2e27-4d85-b699-499476c203a6",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "gmailController.js:36",
-            message: "OAuth error detected",
-            data: { error, allQuery: req.query },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "run1",
-            hypothesisId: "H1",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
+      // eslint-disable-next-line no-console
+      console.error("[gmail] OAuth error:", error);
       const redirectUrl = `${
         env.primaryFrontendOrigin
       }/dashboard?gmail=error&reason=${encodeURIComponent(error)}`;
       return res.redirect(redirectUrl);
     }
-    if (!code || !req.user) {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/56b4ddea-2e27-4d85-b699-499476c203a6",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "gmailController.js:42",
-            message: "missing code or user",
-            data: { hasCode: !!code, hasUser: !!req.user, query: req.query },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "run1",
-            hypothesisId: "H2,H4",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
-      return res.status(400).json({ message: "Missing code" });
+    
+    // Validate required parameters
+    if (!code) {
+      // eslint-disable-next-line no-console
+      console.error("[gmail] callback missing code");
+      return res.status(400).json({ 
+        ok: false,
+        message: "Missing authorization code" 
+      });
     }
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/56b4ddea-2e27-4d85-b699-499476c203a6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "gmailController.js:46",
-        message: "before exchangeCodeForTokens",
-        data: {
-          userId: req.user.id,
-          codeLength: code?.length,
-          redirectUri: env.googleRedirectUri,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
-    // #endregion
+    
+    if (!req.user || !req.user.id) {
+      // eslint-disable-next-line no-console
+      console.error("[gmail] callback missing authenticated user");
+      return res.status(401).json({ 
+        ok: false,
+        message: "Authentication required. Please log in first." 
+      });
+    }
+    
     // eslint-disable-next-line no-console
-    console.log(
-      "[gmail] callback exchanging code using client",
-      (env.googleClientId || "").slice(0, 10),
-      "redirect",
-      env.googleRedirectUri
-    );
+    console.log("[gmail] callback exchanging code for user", req.user.id);
+    
+    // Exchange code for tokens and store for this user
     const tokens = await exchangeCodeForTokens(String(code), req.user.id);
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/56b4ddea-2e27-4d85-b699-499476c203a6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "gmailController.js:50",
-        message: "after exchangeCodeForTokens",
-        data: { hasTokens: !!tokens, hasAccessToken: !!tokens?.access_token },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
-    // #endregion
+    
+    if (!tokens || !tokens.access_token) {
+      throw new Error("Failed to obtain access token from Google");
+    }
+    
+    // Get the connected email from the token document
+    const tokenDoc = await GmailTokenModel.findOne({ userId: req.user.id }).lean();
+    const connectedEmail = tokenDoc?.googleEmail || "unknown";
+    
     // eslint-disable-next-line no-console
-    console.log(
-      "[gmail] callback complete for user",
-      req.user.id,
-      "tokens received",
-      Boolean(tokens.access_token)
-    );
-    const redirectUrl = `${env.primaryFrontendOrigin}/dashboard?gmail=connected`;
+    console.log("[gmail] callback complete for user", req.user.id, "email", connectedEmail);
+    
+    const redirectUrl = `${env.primaryFrontendOrigin}/dashboard?gmail=connected&email=${encodeURIComponent(connectedEmail)}`;
     res.redirect(redirectUrl);
   } catch (err) {
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/56b4ddea-2e27-4d85-b699-499476c203a6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "gmailController.js:56",
-        message: "callback catch block",
-        data: {
-          error: err?.message,
-          errorStack: err?.stack?.substring(0, 200),
-          errorCode: err?.code,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
-    // #endregion
     // eslint-disable-next-line no-console
-    console.error("[gmail] callback error", err?.message || err);
-    const redirectUrl = `${env.primaryFrontendOrigin}/dashboard?gmail=error`;
+    console.error("[gmail] callback error", {
+      error: err?.message,
+      code: err?.code,
+      userId: req.user?.id,
+    });
+    
+    const errorMessage = err?.message || "Failed to connect Gmail";
+    const redirectUrl = `${env.primaryFrontendOrigin}/dashboard?gmail=error&reason=${encodeURIComponent(errorMessage)}`;
     return res.redirect(redirectUrl);
   }
 }
 
 export async function status(req, res, next) {
   try {
-    const user = await UserModel.findById(req.user.id)
-      .select(["gmailTokens", "gmailConnected", "gmailEmail"])
-      .lean();
-    const hasTokens = Boolean(
-      user?.gmailTokens?.refresh || user?.gmailTokens?.access
-    );
+    const tokenDoc = await GmailTokenModel.findOne({ userId: req.user.id }).lean();
+    const hasTokens = Boolean(tokenDoc?.accessToken && tokenDoc?.refreshToken);
     let connected = false;
     let needsReconnect = false;
     let reason = undefined;
+    let gmailEmail = tokenDoc?.googleEmail || null;
+    
     if (hasTokens) {
       const health = await ensureGmailHealth(req.user.id);
       if (health.ok) {
@@ -221,6 +120,7 @@ export async function status(req, res, next) {
         reason = health.reason;
         if (health.clearTokens) {
           await clearUserGmailTokens(req.user.id);
+          gmailEmail = null;
         }
       }
     }
@@ -228,19 +128,31 @@ export async function status(req, res, next) {
       connected,
       needsReconnect,
       reason,
-      gmailEmail: user?.gmailEmail,
+      gmailEmail,
     });
   } catch (err) {
-    next(err);
+    // eslint-disable-next-line no-console
+    console.error("[gmail] status error", err?.message || err);
+    res.status(500).json({
+      connected: false,
+      needsReconnect: false,
+      reason: "ERROR",
+      gmailEmail: null,
+      error: err?.message || "Failed to check Gmail status",
+    });
   }
 }
 
 export async function disconnect(req, res, next) {
   try {
     await clearUserGmailTokens(req.user.id);
-    await UserModel.findByIdAndUpdate(req.user.id, { gmailEmail: null });
     res.json({ ok: true });
   } catch (err) {
-    next(err);
+    // eslint-disable-next-line no-console
+    console.error("[gmail] disconnect error", err?.message || err);
+    res.status(500).json({
+      ok: false,
+      error: err?.message || "Failed to disconnect Gmail",
+    });
   }
 }
