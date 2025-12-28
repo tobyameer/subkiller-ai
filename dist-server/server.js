@@ -14,18 +14,21 @@ import { generalLimiter } from "./middleware/rateLimit.js";
 
 const app = express();
 
+// Trust proxy (required for Render/Railway behind reverse proxy)
+app.set("trust proxy", 1);
+
 const allowlist = env.frontendOrigins;
 const isDev = process.env.NODE_ENV !== "production";
 // Use process.env.PORT (required by Render/Railway/Fly) with fallback
 const PORT = parseInt(process.env.PORT || env.port, 10) || 4000;
 const serverStartTime = Date.now();
 
-// CORS config: In dev, allow any localhost/127.0.0.1 port for Vite flexibility
-// In prod, use strict allowlist from env (CORS_ORIGINS or FRONTEND_ORIGIN)
+// CORS config: Allow production Netlify domains + localhost in dev
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // allow curl/postman
+      // Allow requests with no origin (curl, postman, mobile apps, etc.)
+      if (!origin) return cb(null, true);
 
       // In development: allow any localhost/127.0.0.1 with any port
       if (isDev) {
@@ -35,13 +38,24 @@ app.use(
         }
       }
 
-      // Production: strict allowlist from CORS_ORIGINS or FRONTEND_ORIGIN
-      if (allowlist.includes(origin)) return cb(null, true);
+      // Allow any Netlify deployment (*.netlify.app)
+      if (origin.endsWith(".netlify.app")) {
+        return cb(null, true);
+      }
 
+      // Check explicit allowlist from env (CORS_ORIGINS or FRONTEND_ORIGIN)
+      if (allowlist.includes(origin)) {
+        return cb(null, true);
+      }
+
+      // Blocked origin
       // eslint-disable-next-line no-console
       console.error("[cors] Blocked origin:", origin);
       // eslint-disable-next-line no-console
-      console.error("[cors] Allowed origins:", allowlist);
+      console.error(
+        "[cors] Allowed patterns: *.netlify.app, localhost (dev), and:",
+        allowlist
+      );
       return cb(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -55,13 +69,9 @@ app.use(cookieParser());
 
 // Health endpoint (before routes and rate limiting, works even if DB is down)
 app.get("/api/health", (_req, res) => {
-  const uptime = Math.floor((Date.now() - serverStartTime) / 1000); // seconds
   res.json({
     ok: true,
-    time: new Date().toISOString(),
-    uptime,
-    env: process.env.NODE_ENV || "development",
-    db: isDbConnected() ? "connected" : "disconnected",
+    ts: new Date().toISOString(),
   });
 });
 
@@ -107,7 +117,18 @@ const start = async () => {
     // eslint-disable-next-line no-console
     console.log("[startup] CORS Origins:", allowlist.join(", "));
     // eslint-disable-next-line no-console
-    console.log("[startup] CORS Source:", process.env.CORS_ORIGINS ? "CORS_ORIGINS" : process.env.FRONTEND_ORIGIN ? "FRONTEND_ORIGIN" : "default (localhost)");
+    console.log(
+      "[startup] CORS: Allowing *.netlify.app (all Netlify deployments)"
+    );
+    // eslint-disable-next-line no-console
+    console.log(
+      "[startup] CORS Source:",
+      process.env.CORS_ORIGINS
+        ? "CORS_ORIGINS"
+        : process.env.FRONTEND_ORIGIN
+        ? "FRONTEND_ORIGIN"
+        : "default (localhost)"
+    );
     // eslint-disable-next-line no-console
     console.log("[startup] Google OAuth configured:", !!env.googleClientId);
 
@@ -115,7 +136,7 @@ const start = async () => {
     const resendConfigured = !!process.env.RESEND_API_KEY;
     const emailFrom = process.env.EMAIL_FROM || "no-reply@subkiller.app";
     const isProduction = process.env.NODE_ENV === "production";
-    
+
     // eslint-disable-next-line no-console
     console.log("[startup] Email service: Resend");
     if (resendConfigured) {
@@ -125,13 +146,17 @@ const start = async () => {
       console.log("[startup] EMAIL_FROM:", emailFrom);
     } else {
       // eslint-disable-next-line no-console
-      console.log("[startup] RESEND_API_KEY: not set (emails will be logged only)");
+      console.log(
+        "[startup] RESEND_API_KEY: not set (emails will be logged only)"
+      );
       // eslint-disable-next-line no-console
       console.log("[startup] EMAIL_FROM:", emailFrom);
     }
     if (!isProduction) {
       // eslint-disable-next-line no-console
-      console.log("[startup] Development mode: emails will be logged (not sent)");
+      console.log(
+        "[startup] Development mode: emails will be logged (not sent)"
+      );
     }
     // eslint-disable-next-line no-console
     console.log("=".repeat(50));

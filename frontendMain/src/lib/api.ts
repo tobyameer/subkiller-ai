@@ -1,7 +1,13 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+// Use VITE_API_URL in production, fallback to localhost only in dev
+const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:4000" : "");
 // Log base URL once for debugging CORS/fetch issues
 // eslint-disable-next-line no-console
-console.log("[api] BASE_URL configured:", BASE_URL);
+console.log("[api] BASE_URL configured:", BASE_URL || "(not set - check VITE_API_URL)");
+
+if (!BASE_URL) {
+  // eslint-disable-next-line no-console
+  console.error("[api] ERROR: VITE_API_URL is not set. API calls will fail.");
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Ensure path starts with / if it doesn't already
@@ -24,9 +30,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     // Network error (server down, CORS, connection refused, etc.)
     // eslint-disable-next-line no-console
     console.error("[api] network error", url, fetchError.message || fetchError);
-    const backendUrl = BASE_URL;
+    const backendUrl = BASE_URL || "(not configured)";
     const error: any = new Error(
-      `Backend not reachable. Is the server running on ${backendUrl}? Check the console for connection errors.`
+      `Backend not reachable at ${url}. Is the server running? Check VITE_API_URL environment variable.`
     );
     error.status = 0;
     error.isNetworkError = true;
